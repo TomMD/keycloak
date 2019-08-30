@@ -64,9 +64,13 @@ public abstract class AbstractInitializedBaseBrokerTest extends AbstractBaseBrok
     }
 
     protected void updateExecutions(BiConsumer<AuthenticationExecutionInfoRepresentation, AuthenticationManagementResource> action) {
+        updateExecutions(action, DefaultAuthenticationFlows.FIRST_BROKER_LOGIN_FLOW);
+    }
+
+    protected void updateExecutions(BiConsumer<AuthenticationExecutionInfoRepresentation, AuthenticationManagementResource> action, String flowAlias) {
         AuthenticationManagementResource flows = adminClient.realm(bc.consumerRealmName()).flows();
 
-        for (AuthenticationExecutionInfoRepresentation execution : flows.getExecutions(DefaultAuthenticationFlows.FIRST_BROKER_LOGIN_FLOW)) {
+        for (AuthenticationExecutionInfoRepresentation execution : flows.getExecutions(flowAlias)) {
             action.accept(execution, flows);
         }
     }

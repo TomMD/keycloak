@@ -16,30 +16,27 @@
  */
 package org.keycloak.testsuite.broker;
 
-import static org.junit.Assert.assertEquals;
-
-import java.util.List;
-
 import org.keycloak.authentication.authenticators.broker.IdpAutoLinkAuthenticatorFactory;
 import org.keycloak.authentication.authenticators.browser.OTPFormAuthenticatorFactory;
 import org.keycloak.authentication.authenticators.browser.PasswordFormFactory;
-import org.keycloak.models.AuthenticationExecutionModel;
-import org.keycloak.models.AuthenticationFlowModel;
-import org.keycloak.models.ClientModel;
-import org.keycloak.models.Constants;
-import org.keycloak.models.IdentityProviderModel;
-import org.keycloak.models.RealmModel;
-import org.keycloak.models.RoleModel;
-import org.keycloak.models.UserModel;
-import org.keycloak.models.UserSessionModel;
+import org.keycloak.models.*;
 import org.keycloak.testsuite.client.KeycloakTestingClient;
 import org.keycloak.testsuite.runonserver.RunOnServer;
 import org.keycloak.testsuite.util.FlowUtil;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.Assert.assertEquals;
+import static org.keycloak.models.utils.DefaultAuthenticationFlows.IDP_CREATE_UNIQUE_USER_CONFIG_ALIAS;
 
 /**
  * @author <a href="mailto:psilva@redhat.com">Pedro Igor</a>
  */
 final class BrokerRunOnServerUtil {
+
+    public static final String AUTO_LINK = "AutoLink";
 
     static RunOnServer configurePostBrokerLoginWithOTP(String idpAlias) {
         return (session) -> {
@@ -102,8 +99,8 @@ final class BrokerRunOnServerUtil {
         return (session -> {
             RealmModel appRealm = session.getContext().getRealm();
             AuthenticationFlowModel newFlow = new AuthenticationFlowModel();
-            newFlow.setAlias("AutoLink");
-            newFlow.setDescription("AutoLink");
+            newFlow.setAlias(AUTO_LINK);
+            newFlow.setDescription(AUTO_LINK);
             newFlow.setProviderId("basic-flow");
             newFlow.setBuiltIn(false);
             newFlow.setTopLevel(true);
@@ -115,6 +112,15 @@ final class BrokerRunOnServerUtil {
             execution.setAuthenticator("idp-create-user-if-unique");
             execution.setPriority(1);
             execution.setParentFlow(newFlow.getId());
+
+            AuthenticatorConfigModel config = new AuthenticatorConfigModel();
+            config.setAlias(IDP_CREATE_UNIQUE_USER_CONFIG_ALIAS);
+            Map<String, String> configMap = new HashMap<>();
+            configMap.put("disable.user.creation", "false");
+            config.setConfig(configMap);
+            config = appRealm.addAuthenticatorConfig(config);
+
+            execution.setAuthenticatorConfig(config.getId());
             execution = appRealm.addAuthenticatorExecution(execution);
 
             AuthenticationExecutionModel execution2 = new AuthenticationExecutionModel();
