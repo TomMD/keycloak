@@ -976,11 +976,11 @@ public class AuthenticationProcessor {
         AuthenticationFlow authenticationFlow = createFlowExecution(this.flowId, null);
         Response challenge = authenticationFlow.processFlow();
         if (challenge != null) return challenge;
-        if (authenticationSession.getAuthenticatedUser() == null) {
-            throw new AuthenticationFlowException(AuthenticationFlowError.UNKNOWN_USER);
-        }
         if (!authenticationFlow.isSuccessful()) {
             throw new AuthenticationFlowException(authenticationFlow.getFlowExceptions());
+        }
+        if (authenticationSession.getAuthenticatedUser() == null) {
+            throw new AuthenticationFlowException(AuthenticationFlowError.UNKNOWN_USER);
         }
         return null;
     }

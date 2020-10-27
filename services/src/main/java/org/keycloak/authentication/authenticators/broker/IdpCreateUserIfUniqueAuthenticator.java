@@ -35,13 +35,14 @@ import javax.ws.rs.core.Response;
 import java.util.List;
 import java.util.Map;
 
+import static org.keycloak.authentication.AuthenticationFlowError.UNKNOWN_USER;
+
 /**
  * @author <a href="mailto:mposolda@redhat.com">Marek Posolda</a>
  */
 public class IdpCreateUserIfUniqueAuthenticator extends AbstractIdpAuthenticator {
 
-    private static Logger logger = Logger.getLogger(IdpCreateUserIfUniqueAuthenticator.class);
-
+    private static final Logger logger = Logger.getLogger(IdpCreateUserIfUniqueAuthenticator.class);
 
     @Override
     protected void actionImpl(AuthenticationFlowContext context, SerializedBrokeredIdentityContext serializedCtx, BrokeredIdentityContext brokerContext) {
@@ -49,7 +50,6 @@ public class IdpCreateUserIfUniqueAuthenticator extends AbstractIdpAuthenticator
 
     @Override
     protected void authenticateImpl(AuthenticationFlowContext context, SerializedBrokeredIdentityContext serializedCtx, BrokeredIdentityContext brokerContext) {
-
         KeycloakSession session = context.getSession();
         RealmModel realm = context.getRealm();
 
@@ -68,30 +68,41 @@ public class IdpCreateUserIfUniqueAuthenticator extends AbstractIdpAuthenticator
 
         ExistingUserInfo duplication = checkExistingUser(context, username, serializedCtx, brokerContext);
 
+        AuthenticatorConfigModel config = context.getAuthenticatorConfig();
+
         if (duplication == null) {
-            logger.debugf("No duplication detected. Creating account for user '%s' and linking with identity provider '%s' .",
-                    username, brokerContext.getIdpConfig().getAlias());
+            logger.debugf("No duplication %s", realm.getName());
 
-            UserModel federatedUser = session.users().addUser(realm, username);
-            federatedUser.setEnabled(true);
+            if (isUserCreationDisabled(config)) {
+                logger.debugf("Automatic user creation disabled for realm %s", realm.getName());
+                context.failure(UNKNOWN_USER);
+            } else {
+                logger.debugf("No duplication detected. Creating account for user '%s' and linking with identity provider '%s' .",
+                        username, brokerContext.getIdpConfig().getAlias());
 
-            for (Map.Entry<String, List<String>> attr : serializedCtx.getAttributes().entrySet()) {
-                if (!UserModel.USERNAME.equalsIgnoreCase(attr.getKey())) {
-                    federatedUser.setAttribute(attr.getKey(), attr.getValue());
+                UserModel federatedUser = session.users().addUser(realm, username);
+                federatedUser.setEnabled(true);
+                federatedUser.setEmail(brokerContext.getEmail());
+                federatedUser.setFirstName(brokerContext.getFirstName());
+                federatedUser.setLastName(brokerContext.getLastName());
+
+                for (Map.Entry<String, List<String>> attr : serializedCtx.getAttributes().entrySet()) {
+                    if (!UserModel.USERNAME.equalsIgnoreCase(attr.getKey())) {
+                        federatedUser.setAttribute(attr.getKey(), attr.getValue());
+                    }
                 }
+
+                if (config != null && Boolean.parseBoolean(config.getConfig().get(IdpCreateUserIfUniqueAuthenticatorFactory.REQUIRE_PASSWORD_UPDATE_AFTER_REGISTRATION))) {
+                    logger.debugf("User '%s' required to update password", federatedUser.getUsername());
+                    federatedUser.addRequiredAction(UserModel.RequiredAction.UPDATE_PASSWORD);
+                }
+
+                userRegisteredSuccess(context, federatedUser, serializedCtx, brokerContext);
+
+                context.setUser(federatedUser);
+                context.getAuthenticationSession().setAuthNote(BROKER_REGISTERED_NEW_USER, "true");
+                context.success();
             }
-
-            AuthenticatorConfigModel config = context.getAuthenticatorConfig();
-            if (config != null && Boolean.parseBoolean(config.getConfig().get(IdpCreateUserIfUniqueAuthenticatorFactory.REQUIRE_PASSWORD_UPDATE_AFTER_REGISTRATION))) {
-                logger.debugf("User '%s' required to update password", federatedUser.getUsername());
-                federatedUser.addRequiredAction(UserModel.RequiredAction.UPDATE_PASSWORD);
-            }
-
-            userRegisteredSuccess(context, federatedUser, serializedCtx, brokerContext);
-
-            context.setUser(federatedUser);
-            context.getAuthenticationSession().setAuthNote(BROKER_REGISTERED_NEW_USER, "true");
-            context.success();
         } else {
             logger.debugf("Duplication detected. There is already existing user with %s '%s' .",
                     duplication.getDuplicateAttributeName(), duplication.getDuplicateAttributeValue());
@@ -114,6 +125,11 @@ public class IdpCreateUserIfUniqueAuthenticator extends AbstractIdpAuthenticator
                 context.attempted();
             }
         }
+    }
+
+    private boolean isUserCreationDisabled(AuthenticatorConfigModel config) {
+        logger.debugf("isUserCreationDisabled !!! %s", config.getConfig());
+        return config != null && Boolean.parseBoolean(config.getConfig().get(IdpCreateUserIfUniqueAuthenticatorFactory.DISABLE_USER_CREATION));
     }
 
     // Could be overriden to detect duplication based on other criterias (firstName, lastName, ...)

@@ -136,7 +136,7 @@ public class Assert extends org.junit.Assert {
         }
     }
 
-    public static void assertProviderConfigProperty(ConfigPropertyRepresentation property, String name, String label, String defaultValue, String helpText, String type) {
+    public static void assertProviderConfigProperty(ConfigPropertyRepresentation property, String name, String label, Object defaultValue, String helpText, String type) {
         Assert.assertEquals(name, property.getName());
         Assert.assertEquals(label, property.getLabel());
         Assert.assertEquals(defaultValue, property.getDefaultValue());

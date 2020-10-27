@@ -128,9 +128,12 @@ public class ProvidersTest extends AbstractAuthenticationTest {
         Assert.assertEquals("Create User If Unique", infoRep.getName());
         Assert.assertEquals(IdpCreateUserIfUniqueAuthenticatorFactory.PROVIDER_ID, infoRep.getProviderId());
         Assert.assertEquals("Detect if there is existing Keycloak account with same email like identity provider. If no, create new user", infoRep.getHelpText());
-        Assert.assertEquals(1, infoRep.getProperties().size());
+        Assert.assertEquals(2, infoRep.getProperties().size());
         Assert.assertProviderConfigProperty(infoRep.getProperties().get(0), "require.password.update.after.registration", "Require Password Update After Registration",
                 null, "If this option is true and new user is successfully imported from Identity Provider to Keycloak (there is no duplicated email or username detected in Keycloak DB), then this user is required to update his password",
+                "boolean");
+        Assert.assertProviderConfigProperty(infoRep.getProperties().get(1), "disable.user.creation", "Disable user creation",
+                false, "(False by default) If this option is true and there is no user matching id provided by the Identity Provider in Keycloak, a user will not be created.",
                 "boolean");
     }
 
