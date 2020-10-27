@@ -31,8 +31,14 @@ import javax.crypto.SecretKey;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.cert.Certificate;
-import java.util.*;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * @author <a href="mailto:sthorger@redhat.com">Stian Thorgersen</a>
@@ -118,25 +124,15 @@ public class DefaultKeyManager implements KeyManager {
     }
 
     @Override
-    public List<KeyWrapper> getKeys(RealmModel realm, KeyUse use, String algorithm) {
-        List<KeyWrapper> keys = new LinkedList<>();
-        for (KeyProvider p : getProviders(realm)) {
-            for (KeyWrapper key : p .getKeys()) {
-                if (key.getStatus().isEnabled() && matches(key, use, algorithm)) {
-                    keys.add(key);
-                }
-            }
-        }
-        return keys;
+    public Stream<KeyWrapper> getKeysStream(RealmModel realm, KeyUse use, String algorithm) {
+        return getProviders(realm).stream()
+                .flatMap(p -> p.getKeys().stream()
+                                .filter(key -> key.getStatus().isEnabled() && matches(key, use, algorithm)));
     }
 
     @Override
-    public List<KeyWrapper> getKeys(RealmModel realm) {
-        List<KeyWrapper> keys = new LinkedList<>();
-        for (KeyProvider p : getProviders(realm)) {
-            keys.addAll(p.getKeys());
-        }
-        return keys;
+    public Stream<KeyWrapper> getKeysStream(RealmModel realm) {
+        return getProviders(realm).stream().map(KeyProvider::getKeys).flatMap(List::stream);
     }
 
     @Override
